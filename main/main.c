@@ -12,7 +12,7 @@
  * 1. AP (Access Point) mode - allows local connections
  * 2. STA (Station) mode - allows connection to external WiFi networks
  *
- * @author ESC/POS Project
+ * @author who-zefa
  * @date 2026
  */
 

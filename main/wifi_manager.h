@@ -20,7 +20,7 @@
 
 /* SoftAP Config */
 #define AP_SSID      "ESP32_S3_AP"
-#define AP_PASS      "12345678"
+#define AP_PASS      "who-zefa"
 #define AP_CHANNEL   1
 #define AP_MAX_CONN  4
 

@@ -229,7 +229,7 @@
 <body>
 
 <div class="container">
-  <h1>📄 Printer Manager</h1>
+  <h1>Printer Manager</h1>
   
   <!-- Status Section -->
   <div class="status-box" id="statusBox">
@@ -240,7 +240,7 @@
 
   <!-- Print Text Section -->
   <div class="section">
-    <div class="section-title">📝 Print Text</div>
+    <div class="section-title">Print Text</div>
     <textarea id="printText" placeholder="Enter text to print..."></textarea>
     <button onclick="printText()" id="printBtn" disabled>Send to Printer</button>
     <div class="info-text">Max 256 characters per message</div>
@@ -248,7 +248,7 @@
 
   <!-- Printer Control Section -->
   <div class="section">
-    <div class="section-title">🖨️ Printer Controls</div>
+    <div class="section-title">Printer Controls</div>
     
     <div class="button-group">
       <button class="success" onclick="initPrinter()" id="initBtn" disabled>Initialize</button>
@@ -258,7 +258,7 @@
 
   <!-- Paper Control Section -->
   <div class="section">
-    <div class="section-title">📋 Paper Controls</div>
+    <div class="section-title">Paper Controls</div>
     
     <label for="feedLines" style="color: #aaa; font-size: 12px;">Number of lines to feed:</label>
     <input type="number" id="feedLines" value="1" min="1" max="255" style="margin-bottom: 5px;">
@@ -329,7 +329,7 @@
     
     if (connected) {
       statusBox.className = 'status-box status-connected';
-      statusBox.innerHTML = '<div class="status-text">✅ Printer Connected</div><div class="info-text">Ready to print</div>';
+      statusBox.innerHTML = '<div class="status-text">Printer Connected</div><div class="info-text">Ready to print</div>';
       
       // Enable all printer buttons
       document.getElementById('printBtn').disabled = false;
@@ -340,7 +340,7 @@
       document.getElementById('cutFullBtn').disabled = false;
     } else {
       statusBox.className = 'status-box status-disconnected';
-      statusBox.innerHTML = '<div class="status-text">❌ Printer Disconnected</div><div class="info-text">Connect a USB printer and refresh</div>';
+      statusBox.innerHTML = '<div class="status-text">Printer Disconnected</div><div class="info-text">Connect a USB printer and refresh</div>';
       
       // Disable all printer buttons
       document.getElementById('printBtn').disabled = true;
