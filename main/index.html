@@ -1,0 +1,140 @@
+<!--
+  @file index.html
+  @brief WiFi Manager Web Interface
+  
+  This HTML file provides a user-friendly web interface for managing WiFi connections.
+  
+  Features:
+  - WiFi network scanning with RSSI signal strength
+  - One-click connection to scanned networks
+  - Manual SSID and password entry
+  - WiFi reset to default AP+STA mode
+  - Auto-refresh network list every 5 seconds
+  - Dark theme UI optimized for mobile and desktop
+  
+  The page communicates with the HTTP server via REST API endpoints:
+  - GET /scan - Retrieve list of available WiFi networks
+  - POST /connect - Connect to a WiFi network
+  - POST /reset - Reset WiFi configuration
+  
+  After WiFi configuration, users can navigate to /printer page for printer control.
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESP32 WiFi Manager</title>
+  <style>
+    body        { font-family: Arial; background: #111; color: #eee; padding: 20px; }
+    h2          { text-align: center; }
+    table       { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td      { border: 1px solid #444; padding: 10px; text-align: left; }
+    th          { background: #222; }
+    tr:nth-child(even) { background: #1b1b1b; }
+    input,
+    button      { padding: 10px; margin: 5px; width: 100%; max-width: 400px; }
+    button      { cursor: pointer; background: #0a84ff; color: white; border: none; }
+    .danger     { background: #ff3b30; }
+    .loading    { text-align: center; font-size: 18px; color: #0f0; }
+  </style>
+</head>
+<body>
+
+<h2>ESP32-S3 WiFi Manager</h2>
+<div class="loading">Scanning...</div>
+
+<h3>Manual Connection</h3>
+<input id="manual_ssid" placeholder="SSID">
+<input id="manual_pass" placeholder="Password" type="password">
+<button onclick="manualConnect()">Connect</button>
+<button class="danger" onclick="resetWifi()">Reset to APSTA Mode</button></div>
+
+<!-- Link to Printer Manager -->
+<div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #666;">
+  <p style="font-size: 14px; color: #aaa;">
+    Want to print? <a href="/printer" style="color: #0a84ff; text-decoration: none;">Go to Printer Manager →</a>
+  </p>
+</div>
+<table id="wifiTable">
+  <thead>
+    <tr>
+      <th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Auth</th><th>Action</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  function authMode(a) {
+    switch (a) {
+      case 0: return 'Open';
+      case 1: return 'WEP';
+      case 2: return 'WPA';
+      case 3: return 'WPA2';
+      case 4: return 'WPA/WPA2';
+      case 5: return 'Enterprise';
+      case 6: return 'WPA3';
+      default: return a;
+    }
+  }
+
+  function loadNetworks() {
+    fetch('/scan')
+      .then(r => r.json())
+      .then(data => {
+        const tbody = document.querySelector('#wifiTable tbody');
+        tbody.innerHTML = '';
+        document.querySelector('.loading').innerText =
+          'Updated: ' + new Date().toLocaleTimeString();
+
+        data.networks.forEach((ap, i) => {
+          tbody.innerHTML +=
+            `<tr>
+              <td>${i + 1}</td>
+              <td>${ap.ssid}</td>
+              <td>${ap.rssi}</td>
+              <td>${ap.channel}</td>
+              <td>${authMode(ap.auth)}</td>
+              <td><button onclick="connectNetwork('${ap.ssid}')">Connect</button></td>
+            </tr>`;
+        });
+      })
+      .catch(() => {
+        document.querySelector('.loading').innerText = 'Scan failed';
+      });
+  }
+
+  function connectNetwork(ssid) {
+    const pw = prompt('Password for ' + ssid);
+    if (pw === null) return;
+    fetch('/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pw)}`
+    }).then(r => r.text()).then(msg => alert(msg));
+  }
+
+  function manualConnect() {
+    const ssid = document.getElementById('manual_ssid').value;
+    const pw   = document.getElementById('manual_pass').value;
+    fetch('/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pw)}`
+    }).then(r => r.text()).then(msg => alert(msg));
+  }
+
+  function resetWifi() {
+    fetch('/reset', { method: 'POST' })
+      .then(r => r.text())
+      .then(msg => alert(msg));
+  }
+
+  loadNetworks();
+  setInterval(loadNetworks, 5000);
+</script>
+
+</body>
+</html>
