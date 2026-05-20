@@ -10,8 +10,24 @@
  * - Automatic USB device detection and connection
  * - Support for text printing, paper feeding, cutting, and beeping
  * - Mutex-protected operations to prevent concurrent access issues
+ * - Access to full escpos library for advanced features (images, barcodes, QR codes)
  *
  * All operations are protected by a FreeRTOS mutex to ensure thread-safe access.
+ *
+ * Image Printing:
+ * For image printing, obtain the printer handle via printer_manager_get_printer()
+ * and use the escpos_image_* API functions directly:
+ *
+ *   escpos_printer_t *printer = printer_manager_get_printer();
+ *   if (printer) {
+ *       escpos_image_params_t params = escpos_image_get_default_params();
+ *       escpos_image_t image = {0};
+ *       escpos_image_load_from_file("/path/to/image.bmp", &params, &image);
+ *       escpos_print_image(printer, &image, ESCPOS_IMAGE_MODE_NORMAL);
+ *       escpos_image_free(&image);
+ *   }
+ *
+ * See components/esp_escpos/docs/IMAGE_PRINTING.md for complete documentation.
  */
 
 #pragma once

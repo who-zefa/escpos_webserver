@@ -1,28 +1,14 @@
 <!--
   @file printer.html
-  @brief USB ESC/POS Printer Manager Web Interface
+  @brief Complete ESP32 ESC/POS Printer Manager Web Interface
   
-  This HTML file provides a comprehensive web interface for controlling USB thermal printers.
-  
-  Features:
-  - Real-time printer connection status indicator
-  - Text printing with character limit validation
-  - Paper control (feed lines, full cut, partial cut)
-  - Printer initialization and beep commands
-  - Auto-refresh printer status every 3 seconds
-  - Responsive dark theme UI
-  - Keyboard shortcuts (Ctrl+Enter to send text)
-  - Auto-hide success/error messages after 5 seconds
-  
-  The page communicates with the HTTP server via REST API endpoints:
-  - GET /printer/status - Check if printer is connected
-  - POST /printer/print - Send text to printer
-  - POST /printer/feed - Feed paper (with configurable line count)
-  - POST /printer/cut - Cut paper (full or partial)
-  - POST /printer/init - Initialize printer
-  - POST /printer/beep - Trigger printer beep
-  
-  The printer must be connected via USB before any commands can be sent.
+  Comprehensive web interface for all printer functionality:
+  - Text formatting (bold, underline, font, size, alignment)
+  - Image printing with dithering
+  - Barcodes (all types)
+  - QR codes
+  - Paper control (feed, cut)
+  - Printer configuration (width, reset)
 -->
 
 <!DOCTYPE html>
@@ -30,454 +16,638 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ESP32 Printer Manager</title>
+  <title>ESC/POS Printer Manager</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+    
     body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
       padding: 20px;
       margin: 0;
     }
     
-    h1, h2 {
-      text-align: center;
-      color: #0a84ff;
-    }
-    
     .container {
-      max-width: 600px;
+      max-width: 900px;
       margin: 0 auto;
-      background: #1b1b1b;
-      padding: 20px;
-      border-radius: 8px;
-      border: 1px solid #333;
     }
     
-    .status-box {
-      background: #222;
+    h1 {
+      text-align: center;
+      color: #00d4ff;
+      margin-bottom: 30px;
+    }
+    
+    .status-indicator {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 8px;
       padding: 15px;
-      border-radius: 5px;
       margin-bottom: 20px;
       text-align: center;
-      border: 2px solid #444;
     }
     
-    .status-connected {
+    .status-indicator.connected {
       border-color: #00ff00;
-      background: rgba(0, 255, 0, 0.1);
+      background: rgba(0, 255, 0, 0.05);
     }
     
-    .status-disconnected {
+    .status-indicator.disconnected {
       border-color: #ff3b30;
-      background: rgba(255, 59, 48, 0.1);
+      background: rgba(255, 59, 48, 0.05);
     }
     
     .status-text {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
-      margin: 10px 0;
     }
     
-    .status-connected .status-text {
+    .status-indicator.connected .status-text {
       color: #00ff00;
     }
     
-    .status-disconnected .status-text {
+    .status-indicator.disconnected .status-text {
       color: #ff3b30;
     }
     
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+    }
+    
+    .tab-button {
+      background: #1a1a1a;
+      border: none;
+      color: #00d4ff;
+      padding: 12px 20px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .tab-button:hover {
+      background: #252525;
+    }
+    
+    .tab-button.active {
+      border-bottom-color: #00d4ff;
+      background: #1a2a2a;
+    }
+    
+    .tab-content {
+      display: none;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
     .section {
-      margin-bottom: 25px;
+      margin-bottom: 20px;
     }
     
     .section-title {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: bold;
-      color: #0a84ff;
-      margin-bottom: 10px;
+      color: #00d4ff;
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
     }
     
-    input,
+    input[type="text"],
+    input[type="number"],
+    input[type="file"],
     textarea,
-    button,
     select {
-      display: block;
       width: 100%;
-      padding: 12px;
-      margin: 5px 0;
-      font-size: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: #252525;
       border: 1px solid #444;
-      background: #222;
-      color: #eee;
       border-radius: 4px;
-      box-sizing: border-box;
+      color: #e0e0e0;
+      font-family: inherit;
     }
     
-    input:focus,
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="file"]:focus,
     textarea:focus,
     select:focus {
       outline: none;
-      border-color: #0a84ff;
-      background: #1a1a2e;
+      border-color: #00d4ff;
+      background: #2a2a2a;
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
     }
     
     button {
-      cursor: pointer;
-      background: #0a84ff;
-      color: white;
+      background: #00d4ff;
+      color: #000;
       border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
       font-weight: bold;
-      transition: background 0.3s;
-      margin-top: 10px;
+      font-size: 14px;
+      transition: all 0.3s;
     }
     
     button:hover {
-      background: #0057cc;
+      background: #00e8ff;
+      transform: translateY(-2px);
     }
     
     button:disabled {
-      background: #666;
+      background: #555;
       cursor: not-allowed;
+      transform: none;
+      color: #999;
     }
     
     .button-group {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .button-group.three {
+      grid-template-columns: 1fr 1fr 1fr;
     }
     
     .button-group button {
-      width: 100%;
       margin: 0;
     }
     
-    .danger {
-      background: #ff3b30;
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
     }
     
-    .danger:hover {
-      background: #cc1f1f;
+    .control-row.full {
+      grid-template-columns: 1fr;
     }
     
-    .success {
-      background: #00aa44;
-    }
-    
-    .success:hover {
-      background: #007733;
-    }
-    
-    .warning {
-      background: #ff9500;
-    }
-    
-    .warning:hover {
-      background: #cc7700;
-    }
-    
-    textarea {
-      resize: vertical;
-      min-height: 120px;
-      font-family: 'Courier New', monospace;
-    }
-    
-    .message-box {
+    .message {
       padding: 12px;
-      margin: 10px 0;
       border-radius: 4px;
+      margin-bottom: 15px;
       display: none;
+      font-size: 14px;
     }
     
-    .message-success {
+    .message.success {
       background: rgba(0, 255, 0, 0.2);
       border: 1px solid #00ff00;
       color: #00ff00;
+      display: block;
     }
     
-    .message-error {
+    .message.error {
       background: rgba(255, 59, 48, 0.2);
       border: 1px solid #ff3b30;
       color: #ff3b30;
+      display: block;
     }
     
-    .message-info {
-      background: rgba(10, 132, 255, 0.2);
-      border: 1px solid #0a84ff;
-      color: #0a84ff;
+    .slider-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
     }
     
-    .info-text {
-      font-size: 12px;
-      color: #aaa;
-      margin-top: 5px;
+    .slider-group input[type="range"] {
+      flex: 1;
+      width: auto;
+      margin: 0;
     }
     
-    .link {
-      color: #0a84ff;
-      text-decoration: none;
-      cursor: pointer;
+    .slider-value {
+      min-width: 50px;
+      text-align: center;
     }
     
-    .link:hover {
-      text-decoration: underline;
+    @media (max-width: 600px) {
+      .button-group {
+        grid-template-columns: 1fr;
+      }
+      
+      .button-group.three {
+        grid-template-columns: 1fr;
+      }
+      
+      .control-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-
-<div class="container">
-  <h1>Printer Manager</h1>
-  
-  <!-- Status Section -->
-  <div class="status-box" id="statusBox">
-    <div class="status-text">Checking printer status...</div>
-  </div>
-  
-  <div id="messageBox" class="message-box"></div>
-
-  <!-- Print Text Section -->
-  <div class="section">
-    <div class="section-title">Print Text</div>
-    <textarea id="printText" placeholder="Enter text to print..."></textarea>
-    <button onclick="printText()" id="printBtn" disabled>Send to Printer</button>
-    <div class="info-text">Max 256 characters per message</div>
-  </div>
-
-  <!-- Printer Control Section -->
-  <div class="section">
-    <div class="section-title">Printer Controls</div>
+  <div class="container">
+    <h1>🖨️ ESC/POS Printer Manager</h1>
     
-    <div class="button-group">
-      <button class="success" onclick="initPrinter()" id="initBtn" disabled>Initialize</button>
-      <button class="warning" onclick="beepPrinter()" id="beepBtn" disabled>Beep</button>
+    <div class="status-indicator disconnected" id="statusBox">
+      <div class="status-text" id="statusText">Printer: Disconnected</div>
+    </div>
+    
+    <div id="message" class="message"></div>
+    
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('text')">Text</button>
+      <button class="tab-button" onclick="switchTab('format')">Formatting</button>
+      <button class="tab-button" onclick="switchTab('barcode')">Barcode/QR</button>
+      <button class="tab-button" onclick="switchTab('image')">Image</button>
+      <button class="tab-button" onclick="switchTab('paper')">Paper</button>
+      <button class="tab-button" onclick="switchTab('config')">Config</button>
+    </div>
+    
+    <!-- TEXT TAB -->
+    <div id="text" class="tab-content active">
+      <div class="section">
+        <div class="section-title">Print Text</div>
+        <textarea id="printText" placeholder="Enter text to print..."></textarea>
+        <button onclick="printText()" id="printBtn" disabled style="width: 100%; margin-bottom: 10px;">Send to Printer</button>
+      </div>
+      
+      <div class="section">
+        <div class="section-title">Aligned Text</div>
+        <textarea id="alignedText" placeholder="Enter text..."></textarea>
+        <select id="alignSelect">
+          <option value="0">Left</option>
+          <option value="1" selected>Center</option>
+          <option value="2">Right</option>
+        </select>
+        <button onclick="printAlignedText()" id="alignBtn" disabled>Print Aligned</button>
+      </div>
+    </div>
+    
+    <!-- FORMATTING TAB -->
+    <div id="format" class="tab-content">
+      <div class="section">
+        <div class="section-title">Text Formatting</div>
+        
+        <label>
+          <input type="checkbox" id="boldCheck" onchange="setBold(this.checked)">
+          <span style="color: #e0e0e0; margin-left: 5px;">Bold</span>
+        </label>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px;">Underline:</label>
+          <div class="control-row">
+            <input type="number" id="underlineVal" value="0" min="0" max="2" style="margin: 0;">
+            <button onclick="setUnderline()" style="margin: 0;">Apply</button>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px;">Font:</label>
+          <select id="fontSelect" onchange="setFont()" style="margin-bottom: 10px;">
+            <option value="0">Font A (Standard)</option>
+            <option value="1">Font B (Condensed)</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px;">Text Size:</label>
+          <div class="control-row">
+            <input type="number" id="sizeW" value="1" min="1" max="8" placeholder="Width" style="margin: 0;">
+            <input type="number" id="sizeH" value="1" min="1" max="8" placeholder="Height" style="margin: 0;">
+          </div>
+          <button onclick="setTextSize()">Apply Size</button>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px;">Alignment:</label>
+          <select id="alignFormatSelect" onchange="setAlignment()" style="margin-bottom: 10px;">
+            <option value="0">Left</option>
+            <option value="1">Center</option>
+            <option value="2">Right</option>
+          </select>
+        </div>
+        
+        <button onclick="resetTextFormat()" style="width: 100%; background: #666;">Reset Format</button>
+      </div>
+    </div>
+    
+    <!-- BARCODE/QR TAB -->
+    <div id="barcode" class="tab-content">
+      <div class="section">
+        <div class="section-title">Barcode</div>
+        <input type="text" id="barcodeData" placeholder="Barcode data (e.g., TXN12345)">
+        
+        <label style="display: block; margin-bottom: 5px;">Type:</label>
+        <select id="barcodeType" style="margin-bottom: 10px;">
+          <option value="73">CODE128</option>
+          <option value="67">EAN13</option>
+          <option value="68">EAN8</option>
+          <option value="65">UPC-A</option>
+          <option value="69">CODE39</option>
+        </select>
+        
+        <div class="control-row">
+          <input type="number" id="barcodeW" value="2" min="1" max="10" placeholder="Width (modules)">
+          <input type="number" id="barcodeH" value="80" min="1" max="255" placeholder="Height (dots)">
+        </div>
+        
+        <label style="display: block; margin-bottom: 5px;">HRI (Human Readable):</label>
+        <select id="barcodeHRI" style="margin-bottom: 10px;">
+          <option value="0">None</option>
+          <option value="1">Above</option>
+          <option value="2">Below</option>
+          <option value="3">Both</option>
+        </select>
+        
+        <button onclick="printBarcode()" id="barcodeBtn" disabled>Print Barcode</button>
+      </div>
+      
+      <div class="section">
+        <div class="section-title">QR Code</div>
+        <input type="text" id="qrData" placeholder="QR data (e.g., https://example.com)">
+        
+        <div class="control-row">
+          <input type="number" id="qrSize" value="6" min="1" max="16" placeholder="Dot Size">
+          <input type="number" id="qrEC" value="49" min="48" max="51" placeholder="EC Level (48-51)">
+        </div>
+        
+        <button onclick="printQR()" id="qrBtn" disabled>Print QR Code</button>
+      </div>
+    </div>
+    
+    <!-- IMAGE TAB -->
+    <div id="image" class="tab-content">
+      <div class="section">
+        <div class="section-title">Image Printing</div>
+        <input type="text" id="imagePath" placeholder="File path (e.g., /sdcard/logo.bmp)">
+        
+        <label style="display: block; margin-bottom: 5px;">Dithering:</label>
+        <select id="ditherMode" style="margin-bottom: 10px;">
+          <option value="0">None (Threshold)</option>
+          <option value="1">Threshold (Fast)</option>
+          <option value="2">Floyd-Steinberg (Quality)</option>
+        </select>
+        
+        <label style="display: block; margin-bottom: 5px;">Display Mode:</label>
+        <select id="imageMode" style="margin-bottom: 10px;">
+          <option value="0">Normal</option>
+          <option value="1">Double Width</option>
+          <option value="2">Double Height</option>
+          <option value="3">Double Both</option>
+        </select>
+        
+        <button onclick="printImage()" id="imageBtn" disabled>Print Image</button>
+      </div>
+    </div>
+    
+    <!-- PAPER TAB -->
+    <div id="paper" class="tab-content">
+      <div class="section">
+        <div class="section-title">Paper Control</div>
+        
+        <label style="display: block; margin-bottom: 5px;">Feed Lines:</label>
+        <div class="control-row">
+          <input type="number" id="feedLines" value="1" min="1" max="255" style="margin: 0;">
+          <button onclick="feedPaper()" id="feedBtn" disabled style="margin: 0;">Feed</button>
+        </div>
+        
+        <div class="button-group">
+          <button onclick="cutPaper(false)" id="cutBtn" disabled>Full Cut</button>
+          <button onclick="cutPaper(true)" id="cutPartialBtn" disabled>Partial Cut</button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-title">Beep</div>
+        <button onclick="beep()" id="beepBtn" disabled style="width: 100%;">🔔 Beep</button>
+      </div>
+    </div>
+    
+    <!-- CONFIG TAB -->
+    <div id="config" class="tab-content">
+      <div class="section">
+        <div class="section-title">Printer Configuration</div>
+        
+        <label style="display: block; margin-bottom: 5px;">Paper Width (mm):</label>
+        <div class="control-row">
+          <input type="number" id="paperWidth" value="58" min="1" max="255" style="margin: 0;">
+          <button onclick="setPrinterWidth()" id="setWidthBtn" disabled style="margin: 0;">Set</button>
+        </div>
+        
+        <button onclick="initPrinter()" id="initBtn" disabled style="width: 100%;">Initialize Printer</button>
+      </div>
+      
+      <div class="section">
+        <div class="section-title">Navigation</div>
+        <button onclick="goToWiFi()" style="width: 100%; margin-bottom: 10px;">Go to WiFi Settings</button>
+      </div>
     </div>
   </div>
 
-  <!-- Paper Control Section -->
-  <div class="section">
-    <div class="section-title">Paper Controls</div>
+  <script>
+    const API_BASE = '';
+    let printerConnected = false;
     
-    <label for="feedLines" style="color: #aaa; font-size: 12px;">Number of lines to feed:</label>
-    <input type="number" id="feedLines" value="1" min="1" max="255" style="margin-bottom: 5px;">
-    <button class="success" onclick="feedPaper()" id="feedBtn" disabled>Feed Paper</button>
+    // Check printer status every 2 seconds
+    setInterval(checkPrinterStatus, 2000);
     
-    <div class="button-group" style="margin-top: 10px;">
-      <button class="danger" onclick="cutPaper(true)" id="cutPartialBtn" disabled>Cut (Partial)</button>
-      <button class="danger" onclick="cutPaper(false)" id="cutFullBtn" disabled>Cut (Full)</button>
-    </div>
-  </div>
-
-  <!-- Status Refresh Section -->
-  <div class="section">
-    <button onclick="refreshStatus()" style="background: #444;">Refresh Status</button>
-  </div>
-
-  <!-- WiFi Link Section -->
-  <div class="section" style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #333;">
-    <span class="info-text">
-      Need to configure WiFi? <span class="link" onclick="goToWiFi()">WiFi Settings</span>
-    </span>
-  </div>
-</div>
-
-<script>
-  // Configuration
-  const API_BASE = '';
-  const STATUS_CHECK_INTERVAL = 3000; // 3 seconds
-  let statusCheckInterval = null;
-
-  // Initialize on page load
-  window.onload = function() {
-    refreshStatus();
-    // Auto-refresh status
-    statusCheckInterval = setInterval(refreshStatus, STATUS_CHECK_INTERVAL);
-  };
-
-  // Show message
-  function showMessage(text, type = 'info') {
-    const box = document.getElementById('messageBox');
-    box.textContent = text;
-    box.className = 'message-box message-' + type;
-    box.style.display = 'block';
+    function switchTab(tabName) {
+      // Hide all tabs
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      
+      // Remove active from all buttons
+      const buttons = document.querySelectorAll('.tab-button');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      
+      // Show selected tab
+      document.getElementById(tabName).classList.add('active');
+      
+      // Highlight selected button
+      event.target.classList.add('active');
+    }
     
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-      box.style.display = 'none';
-    }, 5000);
-  }
-
-  // Refresh printer status
-  function refreshStatus() {
-    fetch(`${API_BASE}/printer/status`)
-      .then(r => r.json())
-      .then(data => {
-        updateStatusDisplay(data.connected);
-      })
-      .catch(err => {
+    async function checkPrinterStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/printer/status`);
+        const data = await res.json();
+        printerConnected = data.connected;
+        
+        const box = document.getElementById('statusBox');
+        const text = document.getElementById('statusText');
+        
+        if (printerConnected) {
+          box.classList.remove('disconnected');
+          box.classList.add('connected');
+          text.textContent = '✓ Printer: Connected';
+          enableButtons(true);
+        } else {
+          box.classList.remove('connected');
+          box.classList.add('disconnected');
+          text.textContent = '✗ Printer: Disconnected';
+          enableButtons(false);
+        }
+      } catch (err) {
         console.error('Status check failed:', err);
-        updateStatusDisplay(false);
+      }
+    }
+    
+    function enableButtons(enabled) {
+      const buttons = document.querySelectorAll('button[id$="Btn"], button[id$="btn"]');
+      buttons.forEach(btn => {
+        if (btn.id && btn.id !== 'setWidthBtn' && btn.id !== 'initBtn') {
+          btn.disabled = !enabled;
+        }
       });
-  }
-
-  // Update status display
-  function updateStatusDisplay(connected) {
-    const statusBox = document.getElementById('statusBox');
-    const buttons = document.querySelectorAll('button[disabled], button[id*="Btn"]');
-    
-    if (connected) {
-      statusBox.className = 'status-box status-connected';
-      statusBox.innerHTML = '<div class="status-text">Printer Connected</div><div class="info-text">Ready to print</div>';
-      
-      // Enable all printer buttons
-      document.getElementById('printBtn').disabled = false;
-      document.getElementById('initBtn').disabled = false;
-      document.getElementById('beepBtn').disabled = false;
-      document.getElementById('feedBtn').disabled = false;
-      document.getElementById('cutPartialBtn').disabled = false;
-      document.getElementById('cutFullBtn').disabled = false;
-    } else {
-      statusBox.className = 'status-box status-disconnected';
-      statusBox.innerHTML = '<div class="status-text">Printer Disconnected</div><div class="info-text">Connect a USB printer and refresh</div>';
-      
-      // Disable all printer buttons
-      document.getElementById('printBtn').disabled = true;
-      document.getElementById('initBtn').disabled = true;
-      document.getElementById('beepBtn').disabled = true;
-      document.getElementById('feedBtn').disabled = true;
-      document.getElementById('cutPartialBtn').disabled = true;
-      document.getElementById('cutFullBtn').disabled = true;
-    }
-  }
-
-  // Send text to printer
-  function printText() {
-    const text = document.getElementById('printText').value.trim();
-    
-    if (!text) {
-      showMessage('Please enter text to print', 'error');
-      return;
     }
     
-    if (text.length > 256) {
-      showMessage('Text too long (max 256 characters)', 'error');
-      return;
+    function showMessage(msg, isError = false) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.className = `message ${isError ? 'error' : 'success'}`;
+      setTimeout(() => el.className = 'message', 5000);
     }
-
-    fetch(`${API_BASE}/printer/print`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `text=${encodeURIComponent(text)}`
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        showMessage('Error: ' + data.error, 'error');
-      } else {
-        showMessage('Text sent to printer', 'success');
-        document.getElementById('printText').value = '';
-      }
-    })
-    .catch(err => showMessage('Failed to send text: ' + err.message, 'error'));
-  }
-
-  // Feed paper
-  function feedPaper() {
-    const lines = parseInt(document.getElementById('feedLines').value) || 1;
     
-    fetch(`${API_BASE}/printer/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `lines=${lines}`
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        showMessage('Error: ' + data.error, 'error');
-      } else {
-        showMessage(`Fed ${lines} line(s)`, 'success');
+    async function sendCommand(endpoint, data) {
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          body: new URLSearchParams(data)
+        });
+        const result = await res.json();
+        
+        if (result.error) {
+          showMessage('Error: ' + result.error, true);
+        } else {
+          showMessage(result.message || 'Success');
+        }
+      } catch (err) {
+        showMessage('Request failed: ' + err.message, true);
       }
-    })
-    .catch(err => showMessage('Failed to feed paper: ' + err.message, 'error'));
-  }
-
-  // Cut paper
-  function cutPaper(partial) {
-    const cutType = partial ? 'Partial' : 'Full';
+    }
     
-    fetch(`${API_BASE}/printer/cut`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: partial ? 'partial=1' : 'partial=0'
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        showMessage('Error: ' + data.error, 'error');
-      } else {
-        showMessage(`${cutType} cut executed`, 'success');
-      }
-    })
-    .catch(err => showMessage('Failed to cut paper: ' + err.message, 'error'));
-  }
-
-  // Initialize printer
-  function initPrinter() {
-    fetch(`${API_BASE}/printer/init`, {
-      method: 'POST'
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        showMessage('Error: ' + data.error, 'error');
-      } else {
-        showMessage('Printer initialized', 'success');
-      }
-    })
-    .catch(err => showMessage('Failed to initialize: ' + err.message, 'error'));
-  }
-
-  // Beep printer
-  function beepPrinter() {
-    fetch(`${API_BASE}/printer/beep`, {
-      method: 'POST'
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) {
-        showMessage('Error: ' + data.error, 'error');
-      } else {
-        showMessage('Beep sent', 'success');
-      }
-    })
-    .catch(err => showMessage('Failed to beep: ' + err.message, 'error'));
-  }
-
-  // Navigate to WiFi settings
-  function goToWiFi() {
-    window.location.href = '/';
-  }
-
-  // Keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
-    // Ctrl+Enter to send text
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      const printText = document.getElementById('printText');
-      if (document.activeElement === printText && !document.getElementById('printBtn').disabled) {
-        printText();
-      }
+    // TEXT FUNCTIONS
+    function printText() {
+      const text = document.getElementById('printText').value;
+      if (!text) return;
+      sendCommand('/printer/text', { text });
     }
-  });
-
-  // Clean up interval on page unload
-  window.onbeforeunload = function() {
-    if (statusCheckInterval) {
-      clearInterval(statusCheckInterval);
+    
+    function printAlignedText() {
+      const text = document.getElementById('alignedText').value;
+      const align = document.getElementById('alignSelect').value;
+      if (!text) return;
+      sendCommand('/printer/text-aligned', { text, align });
     }
-  };
-</script>
-
+    
+    // FORMAT FUNCTIONS
+    function setBold(enabled) {
+      sendCommand('/printer/bold', { enabled: enabled ? 1 : 0 });
+    }
+    
+    function setUnderline() {
+      const thickness = document.getElementById('underlineVal').value;
+      sendCommand('/printer/underline', { thickness });
+    }
+    
+    function setFont() {
+      const font = document.getElementById('fontSelect').value;
+      sendCommand('/printer/font', { font });
+    }
+    
+    function setTextSize() {
+      const width = document.getElementById('sizeW').value;
+      const height = document.getElementById('sizeH').value;
+      sendCommand('/printer/text-size', { width, height });
+    }
+    
+    function setAlignment() {
+      const align = document.getElementById('alignFormatSelect').value;
+      sendCommand('/printer/align', { align });
+    }
+    
+    function resetTextFormat() {
+      sendCommand('/printer/reset-format', {});
+    }
+    
+    // BARCODE/QR FUNCTIONS
+    function printBarcode() {
+      const data = document.getElementById('barcodeData').value;
+      const type = document.getElementById('barcodeType').value;
+      const width = document.getElementById('barcodeW').value;
+      const height = document.getElementById('barcodeH').value;
+      const hri = document.getElementById('barcodeHRI').value;
+      if (!data) return;
+      sendCommand('/printer/barcode', { data, type, width, height, hri });
+    }
+    
+    function printQR() {
+      const data = document.getElementById('qrData').value;
+      const size = document.getElementById('qrSize').value;
+      const ec = document.getElementById('qrEC').value;
+      if (!data) return;
+      sendCommand('/printer/qr', { data, size, ec });
+    }
+    
+    // IMAGE FUNCTION
+    function printImage() {
+      const path = document.getElementById('imagePath').value;
+      const dither = document.getElementById('ditherMode').value;
+      const mode = document.getElementById('imageMode').value;
+      if (!path) return;
+      sendCommand('/printer/image', { path, dither, mode });
+    }
+    
+    // PAPER FUNCTIONS
+    function feedPaper() {
+      const lines = document.getElementById('feedLines').value;
+      sendCommand('/printer/feed', { lines });
+    }
+    
+    function cutPaper(partial) {
+      sendCommand('/printer/cut', { partial: partial ? 'partial' : '' });
+    }
+    
+    function beep() {
+      sendCommand('/printer/beep', {});
+    }
+    
+    // CONFIG FUNCTIONS
+    function setPrinterWidth() {
+      const width = document.getElementById('paperWidth').value;
+      sendCommand('/printer/set-width', { width });
+    }
+    
+    function initPrinter() {
+      sendCommand('/printer/init', {});
+    }
+    
+    function goToWiFi() {
+      window.location.href = '/';
+    }
+    
+    // Initialize
+    checkPrinterStatus();
+  </script>
 </body>
 </html>

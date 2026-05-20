@@ -12,6 +12,21 @@
  * 1. AP (Access Point) mode - allows local connections
  * 2. STA (Station) mode - allows connection to external WiFi networks
  *
+ * Features:
+ * - Text printing with formatting (align, size, bold, etc.)
+ * - Image printing (BMP format with dithering and scaling)
+ * - Paper control (feed, cut, advance)
+ * - Barcode & QR code generation
+ * - Configurable printer width (58mm, 80mm, custom)
+ *
+ * Image Printing:
+ * Access the printer handle via printer_manager_get_printer() and use:
+ *   - escpos_image_load_from_file() or escpos_image_load_from_buffer()
+ *   - escpos_print_image() with desired display mode
+ *   - escpos_image_free() to release resources
+ *
+ * See components/esp_escpos/docs/IMAGE_PRINTING.md for detailed examples.
+ *
  * @author who-zefa
  * @date 2026
  */
